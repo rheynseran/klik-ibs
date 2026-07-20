@@ -7,7 +7,7 @@ import LoginForm from "@/components/LoginForm";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const BACKGROUNDS = ["/bg1.jpg", "/bg2.jpg", "/bg3.jpg", "/bg4.jpg"]
+const BACKGROUNDS = ["/bg1.jpg", "/bg2.jpg", "/bg3.jpg", "/bg4.jpg"];
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
@@ -145,18 +145,20 @@ export default function Home() {
         </div>
       )}
 
-      {/* ============ WHATSAPP FLOATING (bottom-left) ============ */}
-      <a
-        href="https://wa.me/6282264825919"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group fixed bottom-24 left-4 z-40 flex items-center gap-2.5 rounded-full border border-white/20 bg-[#25D366] py-2.5 pl-2.5 pr-4 font-bold text-white shadow-2xl shadow-black/40 transition-all hover:scale-105 hover:bg-[#20ba5a] sm:bottom-28 sm:left-192"
-      >
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-white/20">
-          <FaWhatsapp size={35} className="shrink-0" />
-        </span>
-        <span className="text-xs tracking-wide sm:text-sm">Kontak Kami</span>
-      </a>
+      {/* ============ WHATSAPP FLOATING (Centered at bottom) ============ */}
+      <div className="fixed bottom-20 left-0 right-0 z-40 flex justify-center px-4">
+        <a
+          href="https://wa.me/6282264825919"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2.5 rounded-full border border-white/20 bg-[#25D366] py-2.5 pl-2.5 pr-5 font-bold text-white shadow-2xl shadow-black/40 transition-all hover:scale-105 hover:bg-[#20ba5a]"
+        >
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-white/20">
+            <FaWhatsapp size={22} className="shrink-0" />
+          </span>
+          <span className="text-xs tracking-wide sm:text-sm">Kontak Kami</span>
+        </a>
+      </div>
 
       {/* ============ FOOTER ============ */}
       <footer className="relative z-40 mx-auto flex w-full max-w-7xl flex-col items-center justify-center border-t border-white/10 px-4 py-4">
