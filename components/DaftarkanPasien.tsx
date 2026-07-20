@@ -97,16 +97,68 @@ export default function PendaftaranPasienOperasi() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const bodyFormData = new FormData();
-    bodyFormData.append('image', file);
-
     setIsScanning(true);
+
     try {
+      // Fungsi kompresi gambar otomatis via Canvas agar ukuran file pas & aman untuk serverless
+      const compressImage = (inputFile: File): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(inputFile);
+          reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              let width = img.width;
+              let height = img.height;
+
+              const MAX_WIDTH = 1200;
+              const MAX_HEIGHT = 1200;
+
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return reject(new Error('Gagal memproses canvas gambar'));
+              
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              canvas.toBlob((blob) => {
+                if (blob) resolve(blob);
+                else reject(new Error('Gagal mengubah gambar menjadi Blob'));
+              }, 'image/jpeg', 0.7);
+            };
+          };
+          reader.onerror = (error) => reject(error);
+        });
+      };
+
+      const compressedBlob = await compressImage(file);
+      const bodyFormData = new FormData();
+      bodyFormData.append('image', compressedBlob, 'scan.jpg');
+
       const res = await fetch('/api/scan-pasien', {
         method: 'POST',
         body: bodyFormData,
       });
+
       const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || `Server merespons dengan status ${res.status}`);
+      }
 
       if (result.success && result.data) {
         setFormData((prev: FormDataType) => ({
@@ -116,15 +168,16 @@ export default function PendaftaranPasienOperasi() {
           diagnosaMedis: result.data.diagnosa || prev.diagnosaMedis,
           rencanaTindakan: result.data.jenis_operasi || prev.rencanaTindakan,
         }));
-        alert("Berhasil membaca data dari dokumen medis!");
+        alert("🎉 Berhasil membaca data dari dokumen medis!");
       } else {
-        alert("Gagal membaca data. Coba ambil foto ulang dengan lebih jelas.");
+        alert("⚠️ Gagal membaca data. Pastikan tulisan di dokumen terlihat jelas dan fokus.");
       }
-    } catch (error) {
-      console.error(error);
-      alert("Terjadi kesalahan saat memproses gambar.");
+    } catch (error: any) {
+      console.error("Detail Error Frontend:", error);
+      alert(`Terjadi kesalahan: ${error?.message || 'Koneksi terputus atau file tidak didukung.'}`);
     } finally {
       setIsScanning(false);
+      e.target.value = ''; // Reset input agar bisa scan ulang jika perlu
     }
   };
 
