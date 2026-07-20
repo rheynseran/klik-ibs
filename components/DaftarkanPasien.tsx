@@ -1,10 +1,32 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, FileText, Trash2, Send, Heart } from 'lucide-react';
+import { LogOut, FileText, Trash2, Send, Heart, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVeQaCIqrCREkeTMCVW2H7S6W8MPkJ-dz7y6KkR4UKkt1JbvCr99BIOoBP8gmFrnM/exec";
+
+// Definisikan Tipe Data Form agar TypeScript tidak error
+interface FormDataType {
+  waktuDaftar: string;
+  tanggalRencanaOperasi: string;
+  jenisOperasi: string;
+  kategoriCito: string;
+  noRekamMedik: string;
+  ruanganAsal: string;
+  namaPasien: string;
+  jenisKelamin: string;
+  umurTahun: string;
+  umurBulan: string;
+  diagnosaMedis: string;
+  rencanaTindakan: string;
+  dpjpOperator: string[];
+  dpjpLainnya: string;
+  dpjpAnestesi: string;
+  dpjpAnak: string;
+  catatan: string;
+  isDropdownOpen: boolean;
+}
 
 const daftarTindakan = [
   "Fakoemulsifikasi (Katarak)", "Pterygium", "Trabekulektomi (Glaukoma)", "Eviserasi/Enukleasi", "Injeksi Intravitreal",
@@ -24,36 +46,43 @@ const daftarRuangan = ["VK", "IGD", "ICU", "HCU", "Sasando", "Kenanga", "Kelimut
 export default function PendaftaranPasienOperasi() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   
-  const [formData, setFormData] = useState({
-    waktuDaftar: '',
-    tanggalRencanaOperasi: '',
-    jenisOperasi: 'elektif',
-    kategoriCito: '',
-    noRekamMedik: '',
-    ruanganAsal: '',
-    namaPasien: '',
-    jenisKelamin: 'L',
-    umurTahun: '',
-    umurBulan: '',
-    diagnosaMedis: '',
-    rencanaTindakan: '',
-    dpjpOperator: [] as string[],
-    dpjpLainnya: '',
-    dpjpAnestesi: '',
-    dpjpAnak: '',
-    catatan: '',
-    isDropdownOpen: false
-  });
+  // Menggunakan generic type <FormDataType> untuk mengatasi implicit any pada 'prev'
+  const [formData, setFormData] = useState<FormDataType>(() => {
+    const defaultData: FormDataType = {
+      waktuDaftar: new Date().toISOString().slice(0, 16),
+      tanggalRencanaOperasi: '',
+      jenisOperasi: 'elektif',
+      kategoriCito: '',
+      noRekamMedik: '',
+      ruanganAsal: '',
+      namaPasien: '',
+      jenisKelamin: 'L',
+      umurTahun: '',
+      umurBulan: '',
+      diagnosaMedis: '',
+      rencanaTindakan: '',
+      dpjpOperator: [],
+      dpjpLainnya: '',
+      dpjpAnestesi: '',
+      dpjpAnak: '',
+      catatan: '',
+      isDropdownOpen: false
+    };
 
-  useEffect(() => {
-    const savedData = localStorage.getItem('formDataIBS');
-    if (savedData) {
-      setFormData(JSON.parse(savedData));
-    } else {
-      setFormData(prev => ({ ...prev, waktuDaftar: new Date().toISOString().slice(0, 16) }));
+    if (typeof window !== 'undefined') {
+      const savedData = localStorage.getItem('formDataIBS');
+      if (savedData) {
+        try {
+          return JSON.parse(savedData);
+        } catch (e) {
+          return defaultData;
+        }
+      }
     }
-  }, []);
+    return defaultData;
+  });
 
   useEffect(() => {
     localStorage.setItem('formDataIBS', JSON.stringify(formData));
@@ -61,11 +90,46 @@ export default function PendaftaranPasienOperasi() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev: FormDataType) => ({ ...prev, [name]: value }));
+  };
+
+  const handleScanImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const bodyFormData = new FormData();
+    bodyFormData.append('image', file);
+
+    setIsScanning(true);
+    try {
+      const res = await fetch('/api/scan-pasien', {
+        method: 'POST',
+        body: bodyFormData,
+      });
+      const result = await res.json();
+
+      if (result.success && result.data) {
+        setFormData((prev: FormDataType) => ({
+          ...prev,
+          namaPasien: result.data.nama || prev.namaPasien,
+          noRekamMedik: result.data.no_mr || prev.noRekamMedik,
+          diagnosaMedis: result.data.diagnosa || prev.diagnosaMedis,
+          rencanaTindakan: result.data.jenis_operasi || prev.rencanaTindakan,
+        }));
+        alert("Berhasil membaca data dari dokumen medis!");
+      } else {
+        alert("Gagal membaca data. Coba ambil foto ulang dengan lebih jelas.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan saat memproses gambar.");
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   const handleCheckboxChange = (dokter: string) => {
-    setFormData(prev => {
+    setFormData((prev: FormDataType) => {
       const list = prev.dpjpOperator || [];
       const newList = list.includes(dokter) 
         ? list.filter((item: string) => item !== dokter) 
@@ -121,12 +185,30 @@ export default function PendaftaranPasienOperasi() {
           </h2>
           <button 
             onClick={() => router.push('/')} 
-            className="text-red-600 font-bold flex items-center gap-2 hover:text-red-800 bg-red-50 px-4 py-2 rounded-xl transition border border-red-100"
+            className="text-red-600 font-bold flex items-center gap-2 hover:text-red-800 bg-red-50 px-4 py-2 rounded-xl transition border border-red-100 cursor-pointer"
           >
             <LogOut size={18} /> Logout
           </button>
         </div>
         
+        {/* Tombol Scan Pintar AI */}
+        <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-center backdrop-blur-md">
+          <p className="mb-2 text-xs font-medium text-emerald-200">
+            ⚡ Pintasan Cepat: Scan Gelang, Layar E-RM, atau Catatan Tulis
+          </p>
+          <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 ${isScanning ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Camera size={18} />
+            <span>{isScanning ? "⏳ Sedang Menganalisis AI..." : "📷 Ambil Foto / Upload Dokumen Medis"}</span>
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              onChange={handleScanImage} 
+              className="hidden" 
+            />
+          </label>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border ${formData.jenisOperasi === 'cito' ? 'bg-red-50/80 border-red-200' : 'bg-emerald-50/80 border-emerald-200'}`}>
             <div>
@@ -271,7 +353,7 @@ export default function PendaftaranPasienOperasi() {
             <div className="relative">
                 <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Dokter Operator</label>
                 <div 
-                  onClick={() => setFormData(p => ({ ...p, isDropdownOpen: !p.isDropdownOpen }))} 
+                  onClick={() => setFormData((p: FormDataType) => ({ ...p, isDropdownOpen: !p.isDropdownOpen }))} 
                   className="w-full mt-1 p-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 cursor-pointer truncate shadow-xs"
                 >
                   {formData.dpjpOperator?.length > 0 ? formData.dpjpOperator.join(', ') : <span className="text-slate-400">Klik pilih dokter...</span>}
