@@ -1,29 +1,34 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Menyesuaikan persis dengan penulisan di Vercel: Gemini_API_Key
+// Menggunakan penulisan API Key yang sesuai dengan Vercel Anda
 const genAI = new GoogleGenerativeAI(process.env.Gemini_API_Key || '');
 
 export async function POST(request: Request) {
   try {
-    const { image } = await request.json();
+    // 1. Tangkap FormData yang dikirim oleh Frontend
+    const formData = await request.formData();
+    const file = formData.get('image') as File;
 
-    if (!image) {
+    if (!file) {
       return NextResponse.json({ error: 'Gambar tidak ditemukan' }, { status: 400 });
     }
 
-    const base64Data = image.replace(/^data:image\/[a-z]+;base64,/, '');
-    const mimeTypeMatch = image.match(/^data:(image\/[a-z]+);base64,/);
-    const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : 'image/jpeg';
+    // 2. Ubah File menjadi Buffer lalu ke Base64 agar bisa dibaca Gemini
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Data = buffer.toString('base64');
+    const mimeType = file.type || 'image/jpeg';
 
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const prompt = `Analisis gambar dokumen medis/pasien ini. Ekstrak informasi penting dan berikan hasilnya dalam format JSON murni tanpa teks tambahan dengan struktur berikut:
+    // 3. Sesuaikan kunci JSON agar cocok persis dengan pemetaan di frontend
+    const prompt = `Analisis gambar dokumen medis/pasien ini. Ekstrak informasi penting dan berikan hasilnya dalam format JSON murni tanpa teks tambahan dengan struktur kunci berikut:
     {
-      "namaPasien": "...",
-      "noRm": "...",
+      "nama": "...",
+      "no_mr": "...",
       "diagnosa": "...",
-      "jenisOperasi": "..."
+      "jenis_operasi": "..."
     }`;
 
     const result = await model.generateContent([
