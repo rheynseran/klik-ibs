@@ -228,7 +228,7 @@ export default function PendaftaranPasienOperasi() {
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Bulan</label>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Umur (Bln)</label>
               <input 
                 type="number" 
                 name="umurBulan" 

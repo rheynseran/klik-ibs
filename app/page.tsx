@@ -87,7 +87,7 @@ export default function Home() {
             </span>
             <div className="overflow-hidden w-full">
               <div className="animate-marquee whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100/90 sm:text-[11px]">
-                klik IBS • Silahkan Log in untuk mendaftarkan Pasien CITO & ELEKTIF • Kami Melayani Dengan Kasih •
+                 Silahkan Log in untuk mendaftarkan Pasien CITO & ELEKTIF • Batas Waktu Pendaftaran Pasien Elektif Pukul 12:00 WITA !!!! 
               </div>
             </div>
           </div>
@@ -121,7 +121,7 @@ export default function Home() {
               >
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                 <User size={20} className="shrink-0" />
-                <span>Silahkan Log In</span>
+                <span>Silahkan Log In </span>
               </button>
 
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] text-slate-400">
