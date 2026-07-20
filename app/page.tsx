@@ -87,7 +87,7 @@ export default function Home() {
             </span>
             <div className="overflow-hidden w-full">
               <div className="animate-marquee whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-100/90 sm:text-[11px]">
-                klik IBS • Silahkan Log in untuk mendaftar Pasien CITO & ELEKTIF • Kami Melayani Dengan Kasih •
+                klik IBS • Silahkan Log in untuk mendaftarkan Pasien CITO & ELEKTIF • Kami Melayani Dengan Kasih •
               </div>
             </div>
           </div>
@@ -107,7 +107,7 @@ export default function Home() {
                 </span>
               </h1>
               <p className="mx-auto max-w-md text-sm font-light leading-relaxed text-slate-300 sm:text-base">
-                Sistem Manajemen Kamar Operasi untuk Pelayanan Anestesi & Bedah yang{" "}
+                Sistem Manajemen Kamar Operasi untuk Pelayanan Bedah yang{" "}
                 <span className="font-medium text-white">Cepat, Aman,</span> dan{" "}
                 <span className="font-medium text-white">Profesional.</span>
               </p>
@@ -165,7 +165,7 @@ export default function Home() {
         <div className="flex items-center justify-center gap-2 text-white/80">
           <Lock size={13} className="shrink-0" />
           <p className="text-[10px] font-normal leading-relaxed tracking-[0.05em] sm:text-xs">
-            Versi 1.1 • Pengembang: @rheynseran • 2026
+            Versi 1.1 • rheyn9550@gmail.com • 2026
           </p>
         </div>
       </footer>
