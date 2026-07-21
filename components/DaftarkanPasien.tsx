@@ -1,12 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, FileText, Trash2, Send, Heart, Camera } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { LogOut, FileText, Trash2, Send, Heart } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwVeQaCIqrCREkeTMCVW2H7S6W8MPkJ-dz7y6KkR4UKkt1JbvCr99BIOoBP8gmFrnM/exec";
 
-// Definisikan Tipe Data Form agar TypeScript tidak error
 interface FormDataType {
   waktuDaftar: string;
   tanggalRencanaOperasi: string;
@@ -25,7 +24,6 @@ interface FormDataType {
   dpjpAnestesi: string;
   dpjpAnak: string;
   catatan: string;
-  isDropdownOpen: boolean;
 }
 
 const daftarTindakan = [
@@ -34,7 +32,8 @@ const daftarTindakan = [
   "Gastroskopi", "Kolonoskopi", "ERCP", "Bronkoskopi", "Endoskopi THT", "Polipektomi Endoskopi",
   "Apendektomi Laparoskopi", "Kolesistektomi Laparoskopi", "Hernia Repair Laparoskopi", "Kistektomi Laparoskopi", "Histerektomi Laparoskopi",
   "Kraniotomi", "VP Shunt", "Laminektomi", "Discektomi", "Burr Hole", "Kranioplasti",
-  "Laparatomi Eksplorasi", "Hemoroidektomi", "Fistula Ani", "Kolostomi", "Reseksi Usus", "Apendecktomi Open", "Herniorrhaphy", "Kolesistektomi Open",
+  "Laparatomi Eksplorasi", "Hemoroidektomi", "Fistula Ani", "Kolostomi", "Reseksi Usus",
+  "Apendecktomi Open", "Herniorrhaphy", "Kolesistektomi Open",
   "Mastektomi Radikal", "Biopsi Eksisi Tumor", "Eksisi Tumor Jinak/Ganas", "Limfadenektomi", "Wide Eksisi",
   "AV Fistula (Cimino)", "Pemasangan CDL", "Pemasangan CVC", "Embolektomi", "Vena Varises Surgery", "Pemasangan Port-A-Cath",
   "Sectio Caesarea (SC)", "SC + MOW", "SC + Histerektomi", "Histerektomi", "Kuretase", "Kistektomi Ovarium", "Ekstraksi Vakum",
@@ -43,149 +42,84 @@ const daftarTindakan = [
 
 const daftarRuangan = ["VK", "IGD", "ICU", "HCU", "Sasando", "Kenanga", "Kelimutu", "Cempaka"];
 
+const dpjpOperatorList = [
+  "dr.Agus,Sp.OG", "dr.Yuni,SpOG", "dr.Hendriette,Sp.OG", "dr.Dewi,Sp.OG",
+  "dr.Laurens,Sp.OG", "dr.Bambang,Sp.OG", "dr.Donni Argie,Sp.BS", "dr.Elrick Malelak,Sp.BS",
+  "dr.Jean Pello,Sp.B", "dr.Amrul,Sp.B", "dr.Alders,Sp.B", "dr.Deddy,Sp.B (K)",
+  "dr.Widhi,Sp.B(K) Digestif", "dr.Teguh Dwi Nugroho, Sp.B (K) BVE", "dr.Iren Lokananta,Sp.BA",
+  "dr.Ellen,Sp.BM", "dr.Steven,Sp.OT", "dr.Made,Sp.U", "dr.Richman,Sp.U",
+  "dr.Deif,Sp.An", "dr.Petrus,Sp.An", "dr.Budi,Sp.An", "dr.Intin,Sp.An", "dr.Harry,Sp.An"
+];
+
+const dokterAnestesiList = [
+  "dr.Budi,Sp.An", "dr.Intin,Sp.An", "dr.Harry,Sp.An",
+  "dr.Petrus,Sp.An", "dr.Deif,Sp.An", "Lokal Anestesi"
+];
+
+// ✅ Form selalu fresh/kosong saat dibuka
+const createFreshForm = (): FormDataType => ({
+  waktuDaftar: new Date().toISOString().slice(0, 16),
+  tanggalRencanaOperasi: '',
+  jenisOperasi: 'elektif',
+  kategoriCito: '',
+  noRekamMedik: '',
+  ruanganAsal: '',
+  namaPasien: '',
+  jenisKelamin: 'L',
+  umurTahun: '',
+  umurBulan: '',
+  diagnosaMedis: '',
+  rencanaTindakan: '',
+  dpjpOperator: [],
+  dpjpLainnya: '',
+  dpjpAnestesi: '',
+  dpjpAnak: '',
+  catatan: '',
+});
+
 export default function PendaftaranPasienOperasi() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  
-  // Menggunakan generic type <FormDataType> untuk mengatasi implicit any pada 'prev'
-  const [formData, setFormData] = useState<FormDataType>(() => {
-    const defaultData: FormDataType = {
-      waktuDaftar: new Date().toISOString().slice(0, 16),
-      tanggalRencanaOperasi: '',
-      jenisOperasi: 'elektif',
-      kategoriCito: '',
-      noRekamMedik: '',
-      ruanganAsal: '',
-      namaPasien: '',
-      jenisKelamin: 'L',
-      umurTahun: '',
-      umurBulan: '',
-      diagnosaMedis: '',
-      rencanaTindakan: '',
-      dpjpOperator: [],
-      dpjpLainnya: '',
-      dpjpAnestesi: '',
-      dpjpAnak: '',
-      catatan: '',
-      isDropdownOpen: false
-    };
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-    if (typeof window !== 'undefined') {
-      const savedData = localStorage.getItem('formDataIBS');
-      if (savedData) {
-        try {
-          return JSON.parse(savedData);
-        } catch (e) {
-          return defaultData;
-        }
-      }
-    }
-    return defaultData;
-  });
+  // ✅ Form selalu fresh - tidak ada cache
+  const [formData, setFormData] = useState<FormDataType>(createFreshForm);
 
+  // ✅ Tutup dropdown saat klik di luar
   useEffect(() => {
-    localStorage.setItem('formDataIBS', JSON.stringify(formData));
-  }, [formData]);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  // ✅ Waktu pendaftaran diperbarui otomatis setiap menit
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFormData((prev) => ({
+        ...prev,
+        waktuDaftar: new Date().toISOString().slice(0, 16),
+      }));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
-    setFormData((prev: FormDataType) => ({ ...prev, [name]: value }));
-  };
-
-  const handleScanImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsScanning(true);
-
-    try {
-      // Fungsi kompresi gambar otomatis via Canvas agar ukuran file pas & aman untuk serverless
-      const compressImage = (inputFile: File): Promise<Blob> => {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(inputFile);
-          reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              let width = img.width;
-              let height = img.height;
-
-              const MAX_WIDTH = 1200;
-              const MAX_HEIGHT = 1200;
-
-              if (width > height) {
-                if (width > MAX_WIDTH) {
-                  height *= MAX_WIDTH / width;
-                  width = MAX_WIDTH;
-                }
-              } else {
-                if (height > MAX_HEIGHT) {
-                  width *= MAX_HEIGHT / height;
-                  height = MAX_HEIGHT;
-                }
-              }
-
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) return reject(new Error('Gagal memproses canvas gambar'));
-              
-              ctx.drawImage(img, 0, 0, width, height);
-              
-              canvas.toBlob((blob) => {
-                if (blob) resolve(blob);
-                else reject(new Error('Gagal mengubah gambar menjadi Blob'));
-              }, 'image/jpeg', 0.7);
-            };
-          };
-          reader.onerror = (error) => reject(error);
-        });
-      };
-
-      const compressedBlob = await compressImage(file);
-      const bodyFormData = new FormData();
-      bodyFormData.append('image', compressedBlob, 'scan.jpg');
-
-      const res = await fetch('/api/scan-pasien', {
-        method: 'POST',
-        body: bodyFormData,
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        throw new Error(result.error || `Server merespons dengan status ${res.status}`);
-      }
-
-      if (result.success && result.data) {
-        setFormData((prev: FormDataType) => ({
-          ...prev,
-          namaPasien: result.data.nama || prev.namaPasien,
-          noRekamMedik: result.data.no_mr || prev.noRekamMedik,
-          diagnosaMedis: result.data.diagnosa || prev.diagnosaMedis,
-          rencanaTindakan: result.data.jenis_operasi || prev.rencanaTindakan,
-        }));
-        alert("🎉 Berhasil membaca data dari dokumen medis!");
-      } else {
-        alert("⚠️ Gagal membaca data. Pastikan tulisan di dokumen terlihat jelas dan fokus.");
-      }
-    } catch (error: any) {
-      console.error("Detail Error Frontend:", error);
-      alert(`Terjadi kesalahan: ${error?.message || 'Koneksi terputus atau file tidak didukung.'}`);
-    } finally {
-      setIsScanning(false);
-      e.target.value = ''; // Reset input agar bisa scan ulang jika perlu
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCheckboxChange = (dokter: string) => {
-    setFormData((prev: FormDataType) => {
+    setFormData((prev) => {
       const list = prev.dpjpOperator || [];
-      const newList = list.includes(dokter) 
-        ? list.filter((item: string) => item !== dokter) 
+      const newList = list.includes(dokter)
+        ? list.filter((item) => item !== dokter)
         : [...list, dokter];
       return { ...prev, dpjpOperator: newList };
     });
@@ -193,6 +127,16 @@ export default function PendaftaranPasienOperasi() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.jenisOperasi === 'cito' && !formData.kategoriCito) {
+      alert('⚠️ Kategori Cito wajib diisi untuk operasi cito!');
+      return;
+    }
+    if (isSectio && !formData.dpjpAnak) {
+      alert('⚠️ DPJP Anak wajib diisi untuk operasi Sectio Caesarea!');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await fetch(GOOGLE_SCRIPT_URL, {
@@ -201,86 +145,88 @@ export default function PendaftaranPasienOperasi() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
-      alert('Data Berhasil Tersimpan!');
-      localStorage.removeItem('formDataIBS');
-      window.location.reload();
+
+      alert('✅ Data Berhasil Tersimpan!');
+
+      // ✅ Reset ke form fresh setelah submit
+      setFormData(createFreshForm());
+      setIsDropdownOpen(false);
+
     } catch (error) {
-      alert('Gagal mengirim data.');
+      alert('❌ Gagal mengirim data. Periksa koneksi internet Anda.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isSectio = formData.rencanaTindakan?.toLowerCase().includes('sectio') || formData.rencanaTindakan?.toLowerCase().includes('sc');
-  const dpjpOperatorList = ["dr.Agus,Sp.OG", "dr.Yuni,SpOG", "dr.Hendriette,Sp.OG", "dr.Dewi,Sp.OG", "dr.Laurens,Sp.OG", "dr.Bambang,Sp.OG", "dr.Donni Argie,Sp.BS", "dr.Elrick Malelak,Sp.BS", "dr.Jean Pello,Sp.B", "dr.Amrul,Sp.B", "dr.Alders,Sp.B", "dr.Deddy,Sp.B (K)", "dr.Widhi,Sp.B(K) Digestif", "dr.Teguh Dwi Nugroho, Sp.B (K) BVE", "dr.Iren Lokananta,Sp.BA", "dr.Ellen,Sp.BM", "dr.Steven,Sp.OT", "dr.Made,Sp.U", "dr.Richman,Sp.U", "dr.Deif,Sp.An", "dr.Petrus,Sp.An", "dr.Budi,Sp.An", "dr.Intin,Sp.An", "dr.Harry,Sp.An"];
-  const dokterAnestesiList = ["dr.Budi,Sp.An", "dr.Intin,Sp.An", "dr.Harry,Sp.An", "dr.Petrus,Sp.An", "dr.Deif,Sp.An", "Lokal Anestesi"];
+  const isSectio =
+    formData.rencanaTindakan?.toLowerCase().includes('sectio') ||
+    formData.rencanaTindakan?.toLowerCase().includes('sc');
 
   return (
-    <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }}
-        className="min-h-screen w-full bg-linear-to-br from-emerald-950 via-teal-900 to-green-950 py-8 px-4 sm:px-6"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen w-full bg-gradient-to-br from-emerald-950 via-teal-900 to-green-950 py-8 px-4 sm:px-6"
     >
-      <motion.div 
+      <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
         className="max-w-4xl mx-auto bg-slate-50/98 backdrop-blur-md rounded-3xl shadow-2xl p-6 sm:p-8 border border-emerald-100"
       >
-        {/* Header Section dengan Spacing & Kontras Optimal */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b-2 border-emerald-100/60 pb-6">
           <h2 className="text-xl sm:text-2xl font-extrabold text-slate-800 flex items-center flex-wrap gap-3">
-            <FileText className="text-emerald-700" size={26} /> 
+            <FileText className="text-emerald-700" size={26} />
             <span>Pendaftaran Operasi</span>
-            <motion.div animate={{ scale: [1, 1.25, 1] }} transition={{ repeat: Infinity, duration: 2 }} className="flex items-center ml-1">
-                <Heart className="text-red-500 fill-red-500" size={22} />
+            <motion.div
+              animate={{ scale: [1, 1.25, 1] }}
+              transition={{ repeat: Infinity, duration: 2 }}
+              className="flex items-center ml-1"
+            >
+              <Heart className="text-red-500 fill-red-500" size={22} />
             </motion.div>
           </h2>
-          <button 
-            onClick={() => router.push('/')} 
+          <button
+            onClick={() => router.push('/')}
             className="text-red-600 font-bold flex items-center gap-2 hover:text-red-800 bg-red-50 px-4 py-2 rounded-xl transition border border-red-100 cursor-pointer"
           >
             <LogOut size={18} /> Logout
           </button>
         </div>
-        
-        {/* Tombol Scan Pintar AI */}
-        <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-center backdrop-blur-md">
-          <p className="mb-2 text-xs font-medium text-emerald-200">
-            ⚡ Pintasan Cepat: Scan Gelang, Layar E-RM, atau Catatan Tulis
-          </p>
-          <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:scale-105 ${isScanning ? 'opacity-50 pointer-events-none' : ''}`}>
-            <Camera size={18} />
-            <span>{isScanning ? "⏳ Sedang Menganalisis AI..." : "📷 Ambil Foto / Upload Dokumen Medis"}</span>
-            <input 
-              type="file" 
-              accept="image/*" 
-              capture="environment" 
-              onChange={handleScanImage} 
-              className="hidden" 
-            />
-          </label>
-        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border ${formData.jenisOperasi === 'cito' ? 'bg-red-50/80 border-red-200' : 'bg-emerald-50/80 border-emerald-200'}`}>
+
+          {/* Waktu Daftar & Jenis Operasi */}
+          <div
+            className={`grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border
+              ${formData.jenisOperasi === 'cito'
+                ? 'bg-red-50/80 border-red-200'
+                : 'bg-emerald-50/80 border-emerald-200'
+              }`}
+          >
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Waktu Pendaftaran</label>
-              <input 
-                type="datetime-local" 
-                name="waktuDaftar" 
-                value={formData.waktuDaftar} 
-                onChange={handleChange} 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium" 
-                required 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Waktu Pendaftaran
+              </label>
+              <input
+                type="datetime-local"
+                name="waktuDaftar"
+                value={formData.waktuDaftar}
+                onChange={handleChange}
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
+                required
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Jenis Operasi</label>
-              <select 
-                name="jenisOperasi" 
-                value={formData.jenisOperasi} 
-                onChange={handleChange} 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Jenis Operasi
+              </label>
+              <select
+                name="jenisOperasi"
+                value={formData.jenisOperasi}
+                onChange={handleChange}
                 className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
               >
                 <option value="elektif">Elektif</option>
@@ -289,223 +235,340 @@ export default function PendaftaranPasienOperasi() {
             </div>
           </div>
 
+          {/* Data Pasien */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
             <div className="md:col-span-2">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Tanggal Rencana Operasi</label>
-                <input 
-                  type="datetime-local" 
-                  name="tanggalRencanaOperasi" 
-                  value={formData.tanggalRencanaOperasi} 
-                  onChange={handleChange} 
-                  className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium" 
-                  required 
-                />
-            </div>
-            
-            <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Nama Pasien</label>
-              <input 
-                type="text" 
-                name="namaPasien" 
-                value={formData.namaPasien} 
-                onChange={handleChange} 
-                placeholder="Masukkan nama lengkap" 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
-                required 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Tanggal Rencana Operasi
+              </label>
+              <input
+                type="datetime-local"
+                name="tanggalRencanaOperasi"
+                value={formData.tanggalRencanaOperasi}
+                onChange={handleChange}
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium"
+                required
               />
             </div>
+
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">No Rekam Medik</label>
-              <input 
-                type="text" 
-                name="noRekamMedik" 
-                value={formData.noRekamMedik} 
-                onChange={handleChange} 
-                placeholder="No RM" 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
-                required 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Nama Pasien
+              </label>
+              <input
+                type="text"
+                name="namaPasien"
+                value={formData.namaPasien}
+                onChange={handleChange}
+                placeholder="Masukkan nama lengkap"
+                autoComplete="off"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                required
               />
             </div>
+
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Ruangan Asal</label>
-              <input 
-                list="ruanganList" 
-                type="text" 
-                name="ruanganAsal" 
-                value={formData.ruanganAsal} 
-                onChange={handleChange} 
-                placeholder="Pilih atau ketik ruangan" 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                No Rekam Medik
+              </label>
+              <input
+                type="text"
+                name="noRekamMedik"
+                value={formData.noRekamMedik}
+                onChange={handleChange}
+                placeholder="No RM"
+                autoComplete="off"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                required
               />
-              <datalist id="ruanganList">{daftarRuangan.map((item, i) => <option key={i} value={item} />)}</datalist>
             </div>
+
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Jenis Kelamin</label>
-              <select 
-                name="jenisKelamin" 
-                value={formData.jenisKelamin} 
-                onChange={handleChange} 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Ruangan Asal
+              </label>
+              <input
+                list="ruanganList"
+                type="text"
+                name="ruanganAsal"
+                value={formData.ruanganAsal}
+                onChange={handleChange}
+                placeholder="Pilih atau ketik ruangan"
+                autoComplete="off"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+              <datalist id="ruanganList">
+                {daftarRuangan.map((item, i) => (
+                  <option key={i} value={item} />
+                ))}
+              </datalist>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Jenis Kelamin
+              </label>
+              <select
+                name="jenisKelamin"
+                value={formData.jenisKelamin}
+                onChange={handleChange}
                 className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
               >
                 <option value="L">Laki-laki</option>
                 <option value="P">Perempuan</option>
               </select>
             </div>
+
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Umur (Thn)</label>
-              <input 
-                type="number" 
-                name="umurTahun" 
-                value={formData.umurTahun} 
-                onChange={handleChange} 
-                placeholder="Tahun" 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Umur (Thn)
+              </label>
+              <input
+                type="number"
+                name="umurTahun"
+                value={formData.umurTahun}
+                onChange={handleChange}
+                placeholder="Tahun"
+                min="0"
+                max="150"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
+
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Umur (Bln)</label>
-              <input 
-                type="number" 
-                name="umurBulan" 
-                value={formData.umurBulan} 
-                onChange={handleChange} 
-                placeholder="Bulan" 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Umur (Bln)
+              </label>
+              <input
+                type="number"
+                name="umurBulan"
+                value={formData.umurBulan}
+                onChange={handleChange}
+                placeholder="Bulan"
+                min="0"
+                max="11"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
               />
             </div>
           </div>
 
+          {/* Diagnosa, Tindakan & Dokter */}
           <div className="space-y-4 pt-4 border-t border-slate-200">
+
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Diagnosa Medis</label>
-              <input 
-                type="text" 
-                name="diagnosaMedis" 
-                value={formData.diagnosaMedis} 
-                onChange={handleChange} 
-                placeholder="Tuliskan diagnosa medis..." 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
-                required 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Diagnosa Medis
+              </label>
+              <input
+                type="text"
+                name="diagnosaMedis"
+                value={formData.diagnosaMedis}
+                onChange={handleChange}
+                placeholder="Tuliskan diagnosa medis..."
+                autoComplete="off"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                required
               />
-            </div>
-            
-            <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Rencana Tindakan</label>
-              <input 
-                list="tindakanList" 
-                name="rencanaTindakan" 
-                value={formData.rencanaTindakan} 
-                onChange={handleChange} 
-                placeholder="Pilih atau ketik rencana tindakan..." 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
-                required 
-              />
-              <datalist id="tindakanList">{daftarTindakan.map((item, i) => <option key={i} value={item} />)}</datalist>
-            </div>
-            
-            <div className="relative">
-                <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Dokter Operator</label>
-                <div 
-                  onClick={() => setFormData((p: FormDataType) => ({ ...p, isDropdownOpen: !p.isDropdownOpen }))} 
-                  className="w-full mt-1 p-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 cursor-pointer truncate shadow-xs"
-                >
-                  {formData.dpjpOperator?.length > 0 ? formData.dpjpOperator.join(', ') : <span className="text-slate-400">Klik pilih dokter...</span>}
-                </div>
-                {formData.isDropdownOpen && (
-                    <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto p-2">
-                        {dpjpOperatorList.map((doc, i) => (
-                            <label key={i} className="flex items-center gap-2.5 p-2 hover:bg-slate-50 text-slate-800 text-sm cursor-pointer rounded-lg">
-                              <input type="checkbox" checked={formData.dpjpOperator?.includes(doc)} onChange={() => handleCheckboxChange(doc)} className="rounded text-emerald-600 focus:ring-emerald-500" /> 
-                              {doc}
-                            </label>
-                        ))}
-                        <label className="flex items-center gap-2.5 p-2 text-blue-700 font-bold border-t border-slate-100 text-sm cursor-pointer mt-1">
-                          <input type="checkbox" checked={formData.dpjpOperator?.includes('Lainnya')} onChange={() => handleCheckboxChange('Lainnya')} className="rounded text-emerald-600 focus:ring-emerald-500" /> 
-                          Lainnya
-                        </label>
-                        {formData.dpjpOperator?.includes('Lainnya') && (
-                          <input 
-                            name="dpjpLainnya" 
-                            value={formData.dpjpLainnya} 
-                            onChange={handleChange} 
-                            placeholder="Tulis nama dokter..." 
-                            className="w-full mt-2 p-2 bg-white text-slate-900 border border-slate-300 rounded-lg text-sm" 
-                          />
-                        )}
-                    </div>
-                )}
             </div>
 
-            {formData.jenisOperasi === 'cito' && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-red-50/90 p-4 rounded-2xl border border-red-200">
-                <div>
-                  <label className="text-xs font-bold text-red-900 uppercase tracking-wide">Kategori Cito</label>
-                  <select 
-                    name="kategoriCito" 
-                    value={formData.kategoriCito} 
-                    onChange={handleChange} 
-                    className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
+            <div>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Rencana Tindakan
+              </label>
+              <input
+                list="tindakanList"
+                name="rencanaTindakan"
+                value={formData.rencanaTindakan}
+                onChange={handleChange}
+                placeholder="Pilih atau ketik rencana tindakan..."
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                required
+              />
+              <datalist id="tindakanList">
+                {daftarTindakan.map((item, i) => (
+                  <option key={i} value={item} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* Dropdown Dokter Operator */}
+            <div className="relative" ref={dropdownRef}>
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Dokter Operator
+              </label>
+              <div
+                onClick={() => setIsDropdownOpen((prev) => !prev)}
+                className="w-full mt-1 p-2.5 border border-slate-300 rounded-xl bg-white text-slate-900 cursor-pointer truncate shadow-sm"
+              >
+                {formData.dpjpOperator?.length > 0
+                  ? formData.dpjpOperator.join(', ')
+                  : <span className="text-slate-400">Klik pilih dokter...</span>
+                }
+              </div>
+
+              <AnimatePresence>
+                {isDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto p-2"
                   >
-                      <option value="">Pilih...</option>
-                      <option value="Kategori 1">Kategori 1</option>
-                      <option value="Bukan Kategori 1">Bukan Kategori 1</option>
-                  </select>
-                </div>
+                    {dpjpOperatorList.map((doc, i) => (
+                      <label
+                        key={i}
+                        className="flex items-center gap-2.5 p-2 hover:bg-slate-50 text-slate-800 text-sm cursor-pointer rounded-lg"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.dpjpOperator?.includes(doc)}
+                          onChange={() => handleCheckboxChange(doc)}
+                          className="rounded text-emerald-600 focus:ring-emerald-500"
+                        />
+                        {doc}
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-2.5 p-2 text-blue-700 font-bold border-t border-slate-100 text-sm cursor-pointer mt-1">
+                      <input
+                        type="checkbox"
+                        checked={formData.dpjpOperator?.includes('Lainnya')}
+                        onChange={() => handleCheckboxChange('Lainnya')}
+                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                      />
+                      Lainnya
+                    </label>
+                    {formData.dpjpOperator?.includes('Lainnya') && (
+                      <input
+                        name="dpjpLainnya"
+                        value={formData.dpjpLainnya}
+                        onChange={handleChange}
+                        placeholder="Tulis nama dokter..."
+                        autoComplete="off"
+                        className="w-full mt-2 p-2 bg-white text-slate-900 border border-slate-300 rounded-lg text-sm"
+                      />
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Field Khusus Cito */}
+            {formData.jenisOperasi === 'cito' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-red-50/90 p-4 rounded-2xl border border-red-200"
+              >
                 <div>
-                  <label className="text-xs font-bold text-red-900 uppercase tracking-wide">Dokter Anestesi</label>
-                  <select 
-                    name="dpjpAnestesi" 
-                    value={formData.dpjpAnestesi} 
-                    onChange={handleChange} 
+                  <label className="text-xs font-bold text-red-900 uppercase tracking-wide">
+                    Kategori Cito
+                  </label>
+                  <select
+                    name="kategoriCito"
+                    value={formData.kategoriCito}
+                    onChange={handleChange}
                     className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
                   >
                     <option value="">Pilih...</option>
-                    {dokterAnestesiList.map((d, i) => <option key={i} value={d}>{d}</option>)}
+                    <option value="Kategori 1">Kategori 1</option>
+                    <option value="Bukan Kategori 1">Bukan Kategori 1</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-red-900 uppercase tracking-wide">
+                    Dokter Anestesi
+                  </label>
+                  <select
+                    name="dpjpAnestesi"
+                    value={formData.dpjpAnestesi}
+                    onChange={handleChange}
+                    className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-red-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
+                  >
+                    <option value="">Pilih...</option>
+                    {dokterAnestesiList.map((d, i) => (
+                      <option key={i} value={d}>{d}</option>
+                    ))}
                   </select>
                 </div>
               </motion.div>
             )}
-            
+
+            {/* Field Khusus Sectio */}
             {isSectio && (
               <div>
-                <label className="text-xs font-bold text-red-700 uppercase tracking-wide">DPJP Anak</label>
-                <input 
-                  type="text" 
-                  name="dpjpAnak" 
-                  value={formData.dpjpAnak} 
-                  onChange={handleChange} 
-                  placeholder="Nama DPJP Anak" 
-                  className="w-full mt-1 p-2.5 bg-white text-slate-900 border-2 border-red-400 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" 
+                <label className="text-xs font-bold text-red-700 uppercase tracking-wide">
+                  DPJP Anak
+                </label>
+                <input
+                  type="text"
+                  name="dpjpAnak"
+                  value={formData.dpjpAnak}
+                  onChange={handleChange}
+                  placeholder="Nama DPJP Anak"
+                  autoComplete="off"
+                  className="w-full mt-1 p-2.5 bg-white text-slate-900 border-2 border-red-400 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
                 />
               </div>
             )}
-            
+
+            {/* Catatan Tambahan */}
             <div>
-              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Catatan Tambahan</label>
-              <textarea 
-                name="catatan" 
-                value={formData.catatan} 
-                onChange={handleChange} 
-                placeholder="Catatan tambahan (opsional)..." 
-                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none" 
-                rows={2} 
+              <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                Catatan Tambahan
+              </label>
+              <textarea
+                name="catatan"
+                value={formData.catatan}
+                onChange={handleChange}
+                placeholder="Catatan tambahan (opsional)..."
+                autoComplete="off"
+                className="w-full mt-1 p-2.5 bg-white text-slate-900 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                rows={2}
               />
             </div>
           </div>
 
+          {/* Tombol Submit & Reset */}
           <div className="flex gap-4 pt-4">
-            <motion.button 
-              whileHover={{ scale: 1.01 }} 
-              whileTap={{ scale: 0.99 }} 
-              type="submit" 
-              disabled={isSubmitting} 
-              className="flex-1 bg-emerald-700 text-white py-3.5 px-6 rounded-xl font-bold hover:bg-emerald-800 transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/10 cursor-pointer"
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 bg-emerald-700 text-white py-3.5 px-6 rounded-xl font-bold hover:bg-emerald-800 transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/10 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
-                {isSubmitting ? 'Menyimpan...' : <><Send size={20} /> Kirim Data</>}
+              {isSubmitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <circle
+                      className="opacity-25"
+                      cx="12" cy="12" r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  Menyimpan...
+                </span>
+              ) : (
+                <><Send size={20} /> Kirim Data</>
+              )}
             </motion.button>
-            <button 
-              type="button" 
-              onClick={() => { localStorage.removeItem('formDataIBS'); window.location.reload(); }} 
+
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('Reset semua data form? Tindakan ini tidak bisa dibatalkan.')) {
+                  setFormData(createFreshForm());
+                  setIsDropdownOpen(false);
+                }
+              }}
               className="bg-slate-200 text-slate-700 hover:text-red-600 px-5 rounded-xl hover:bg-slate-300 transition flex items-center justify-center border border-slate-300 cursor-pointer"
               title="Reset Form"
             >
