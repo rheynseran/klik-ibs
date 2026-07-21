@@ -12,7 +12,7 @@ const SLIDESHOW_INTERVAL = 6000;
 const WA_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "6282264825919";
 
 const MARQUEE_TEXT =
-  "🏥 Silakan Log In untuk mendaftarkan Pasien CITO & ELEKTIF\u00A0\u00A0•\u00A0\u00A0Batas Waktu Pendaftaran Pasien Elektif Pukul 12:00 WITA ‼️";
+  "🏥 Silakan Log In untuk Registrasi Pasien CITO & ELEKTIF\u00A0\u00A0•\u00A0\u00A0Batas Waktu Registrasi Pasien Elektif Jam 12:00 WITA ‼️";
 
 export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
@@ -259,7 +259,7 @@ export default function Home() {
       )}
 
       {/* ============ WHATSAPP ============ */}
-      <div className="fixed bottom-6 right-6 z-40 sm:bottom-8 sm:right-8">
+      <div className="fixed bottom-6 right-6 z-40 sm:bottom-18 sm:right-12">
         <a
           href={`https://wa.me/${WA_NUMBER}`}
           target="_blank"
