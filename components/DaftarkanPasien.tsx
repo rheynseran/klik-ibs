@@ -645,7 +645,7 @@ export default function PendaftaranPasienOperasi() {
                           <select name="kategoriCito" value={formData.kategoriCito} onChange={handleChange}
                             className={`${errors.kategoriCito ? inputError : inputDefault} !border-red-300`}>
                             <option value="">— Pilih Kategori —</option>
-                            <option value="Kategori 1">🔴 Kategori 1 (Immediate)</option>
+                            <option value="Kategori 1">🔴 Kategori 1</option>
                             <option value="Bukan Kategori 1">🟡 Bukan Kategori 1</option>
                           </select>
                         </FormField>
