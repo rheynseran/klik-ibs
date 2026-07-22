@@ -16,7 +16,7 @@ export default function LoginForm({ onCancel, onLoginSuccess }: LoginFormProps) 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (username === 'klikibs' && password === 'klik123') {
+    if (username === 'ibs' && password === 'ibs123') {
       onLoginSuccess();
     } else {
       alert('Username atau Password salah!');
