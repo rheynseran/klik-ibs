@@ -944,7 +944,7 @@ export default function PendaftaranPasienOperasi() {
                 <div>
                   <span className="block">REGISTRASI PASIEN BEDAH</span>
                   <span className="text-xs font-medium text-emerald-100 tracking-normal">
-                    Instalasi Bedah Sentral — RSUD Prof. Dr. W.Z. Johannes Kupang
+                    IBS — RSUD Prof. Dr. W.Z. Johannes
                   </span>
                 </div>
               </h2>
